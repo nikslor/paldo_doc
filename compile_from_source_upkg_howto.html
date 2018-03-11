@@ -1,0 +1,186 @@
+<h2>How to build a source package using upkg (the paldo package system)</h2>
+<br/>
+<br />
+
+<h2>Abstract</h2>
+This howto should help you to get a source package built using <a href="http://www.upkg.org">upkg</a>. Upkg is the package management and build system used in the <a href="http://www.paldo.org">Paldo Linux distribution</a>.
+
+<h2>A concrete problem</h2>
+I like the Paldo philosophy of having one tool for every task. But I don't want to install <a href="http://www.k3b.org">k3b</a> (and its dependencies) for making 1:1 copies of a CD.
+Therefore I checked the availability of <a href="http://gnomebaker.sourceforge.net">Gnome Baker</a> in the Paldo package repository. Unfortunately Gnome Baker is not in the main repository.
+Thus I decided to build Gnome Baker from source. Because I want a clean filesystem I don't want to just run "./configure, make and make install".
+It would be nicer to install the binaries, the docs... using the package manager after building everything from source.
+Read on to find out what I did to achieve this.
+
+<h2>Create a local Paldo repository</h2>
+First of all we need to create a place for all our source packages. It doesn't matter where you create this local repository. I put mine in my home folder:
+<br />
+<br />
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <pre>
+    [nicolas@gandalf:~]$mkdir PaldoRepo
+    [nicolas@gandalf:~]$mkdir PaldoRepo/binaries
+    [nicolas@gandalf:~]$mkdir PaldoRepo/sources
+    [nicolas@gandalf:~]$mkdir PaldoRepo/specs</pre>
+</div>
+<br />
+<br />
+
+Now we need to tell upkg about the new local repository. Open <span class="command">/etc/upkg.conf</span> as root and add your repository. The content of the file then looks something like the following:
+<br />
+<br />
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <!-- http://aktuell.de.selfhtml.org/tippstricks/cgiperl/html-in-html/ -->
+  <pre>
+    &lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+    &lt;local&gt;
+      &lt;cachedir&gt;/var/cache/upkg&lt;/cachedir&gt;
+      &lt;repositories&gt;
+              &lt;repository&gt;http://www.paldo.org/paldo&lt;/repository&gt;
+              &lt;repository&gt;/home/nicolas/PaldoRepo/&lt;/repository&gt;
+      &lt;/repositories&gt;
+      &lt;branch&gt;testing&lt;/branch&gt;
+      &lt;arch&gt;x86&lt;/arch&gt;
+    &lt;/local&gt;</pre>
+</div>
+<br />
+<br />
+
+<h2>Get the source</h2>
+Now download the source code of the application you want to install. In my case I downloaded the zipped source-tarball from <a href="http://gnomebaker.sourceforge.net">http://gnomebaker.sourceforge.net</a>.
+Upkg needs the source distribution as <b>tar</b> (tar file), or <b>tar.bz2 file</b> (bzip2 compressed tar file). Please ensure that your source package is in a supported file format, then copy or move it into the <b>sources dir</b> of your repository. Take care, that the file has the same name which you will later use as the package-name. See the &lt;package name&gt;-tag in the spec file chapter later.<br />
+<br />
+<br />
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  upkg will only find the source package if you save it under $REPODIR/sources/$PACKAGENAME ($PACKAGENAME -> see spec file)
+</div>
+<br />
+<br />
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <pre>
+    [nicolas@gandalf:~/temp/gnome-baker]ls
+    gnome-baker-0.5.0.tar.bz2
+    [nicolas@gandalf:~/temp/gnome-baker]mv gnome-baker-0.5.0.tar.bz2 /home/nicolas/PaldoRepo/sources/
+</div>
+<br />
+<br />
+
+btw: If you like to use a <b>tar.gz file</b>, you need to add the following to your spec file: &lt;archive name=&quot;....&quot; compression=&quot;gz&quot;&gt;
+
+<h2>Create spec file for upkg</h2>
+Now we need to tell upkg how it has to handle the source code. This is done using a simple XML File. You need to create this file in the <b>specs dir</b> in your repository. The name of the file should be the application name. In my case I name it <b>gnome-baker</b>. The content of the file then looks something like the following:
+<br />
+<br />
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <pre>
+    &lt;?xml version=&quot;1.0&quot;?&gt;
+    &lt;package name=&quot;gnome-baker&quot;&gt;
+          &lt;description&gt;gnome cd burning application&lt;/description&gt;
+          &lt;releases&gt;
+                  &lt;release version=&quot;0.5.0&quot; revision=&quot;1&quot; branch=&quot;testing&quot;&gt;
+                          &lt;deps&gt;
+                                  &lt;dep name=&quot;libgnomeui-2.0&quot;/&gt;
+                                  &lt;dep name=&quot;gtk+-2.0&quot;/&gt;
+                                  &lt;dep name=&quot;glib-2.0&quot;/&gt;
+                                  &lt;dep name=&quot;libglade-2.0&quot;/&gt;
+                                  &lt;dep name=&quot;gstreamer-0.8&quot;/&gt;
+                          &lt;/deps&gt;
+                          &lt;build&gt;
+                                  &lt;script&gt;
+                                          &lt;archive name=&quot;gnome-baker-$VERSION&quot;&gt;
+                                                  &lt;cmd&gt;
+                                                       ./configure --prefix=/usr 
+                                                                   --infodir=/usr/share/info 
+                                                                   --mandir=/usr/share/man 
+                                                                   --sysconfdir=/etc 
+                                                                   --enable-nss=no
+                                                  &lt;/cmd&gt;
+                                                  &lt;cmd&gt;make -j 2&lt;/cmd&gt;
+                                                  &lt;cmd&gt;make install&lt;/cmd&gt;
+                                          &lt;/archive&gt;
+                                  &lt;/script&gt;
+                          &lt;/build&gt;
+                  &lt;/release&gt;
+          &lt;/releases&gt;
+    &lt;/package&gt;</pre>
+</div>
+<br />
+<br />
+
+Most parts of this file are self describing. I think I just need to describe the dep-fields. In order to let upkg automatically resolve the dependencies you need to tell upkg which packages your tool needs to get compiled. To find out which other packages are needed, you can try the following approaches:
+<ul>
+  <li>
+    Read <b>configure.in</b> or <b>configure.ac</b> in the source distribution. You will probably find something like: 
+    <i>PKG_CHECK_MODULES(GNOME, libgnomeui-2.0 gtk+-2.0 >= 2.4.0 glib-2.0 >= 2.4.0 libglade-2.0 gstreamer-0.8,,exit)</i> in this case it's probably easy to find the needed packages. Just use the libraries that are listed in the
+    PKG_CHECK_MODULES-list. In most cases Paldo uses exactly these names. For example libgnomeui-2.0 is also called libgnomeui-2.0 in the paldo repository. 
+    However use <a href="http://www.paldo.org/index-section-packages.html"> http://www.paldo.org/index-section-packages.html</a> to get the right name.
+  </li>
+  <li>
+    Check the README, INSTALL,... files in the source distribution. Some projects list the dependencies in one of these files.
+  </li>
+  <li>
+    Copy from an other distribution. If nothing helps, you can still take a look at what other distributions list as dependencies.
+  </li>
+</ul>
+
+<h2>Start compiling and installation</h2>
+Now you're ready to compile and install your application. The following command will invoke everything:
+<br />
+<br >
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <pre>
+    [root@gandalf:~]# upkg-build gnome-baker
+    Generating script...
+    Writing script...
+    Executing script...
+    The following extra packages will be installed:
+    gnome-baker
+
+    The following packages will be built from source:
+    gnome-baker
+
+    Do you want to continue? [Y/n]
+    Building gnome-baker-0.5.0-1 (testing)...
+    [root@gandalf:~]#
+  </pre>
+</div>
+<br />
+<br />
+
+If you want to see verbose output, you can pass <b>--verbose</b> to upkg-build:
+<br />
+<br />
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <pre>
+    [root@gandalf:~]# upkg-build --verbose gnome-baker</pre>
+</div>
+<br />
+<br />
+
+You should now be able to run your application.
+<br />
+<br />
+
+<h2>Log Files of upkg-build</h2>
+If you want to see, what upkg exactly did, take a look at <b>/var/lib/upkg/logs/PACKAGE-VERSION.log.bz2</b>. 
+In my case I see all the steps upkg took in <b>/var/lib/upkg/logs/gnome-baker-x86-glibc-2.3-gcc-4.0-1-0.5.0-1.log.bz2</b>
+
+<h2>Remove the package again</h2>
+If you would like to delete the self made package, just run the following command:
+<br />
+<br >
+
+<div style="border:1px dotted #5787b8; background-color: #bad5e0;">
+  <pre>
+    [root@gandalf:~]# upkg-remove gnome-baker</pre>
+</div>
+<br />
+<br />
+
+This will delete all installed files properly from your filesystem.

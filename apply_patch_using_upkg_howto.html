@@ -1,0 +1,167 @@
+<h2>Abstract</h2>
+This howto should help you to get a patch applied to a source package using <a href="http://www.upkg.org/">upkg</a>. Upkg is the package management and build system used in the <a href="http://www.paldo.org/">Paldo Linux distribution</a>.
+
+<h2>A concrete problem</h2>
+I have a PCI TV card in my paldo workstation. Unfortunately there is no standalone gnome tv application in the the paldo main repository.
+(I don't want do use MythTV only for watching TV) Thus I decided to build <a href="http://zapping.sourceforge.net/">zapping</a> from source.
+Sadly I got the following error during "make".
+<br>
+<br>
+
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <!-- http://aktuell.de.selfhtml.org/tippstricks/cgiperl/html-in-html/ -->
+  <pre>
+    In file included from io-v4l2k.c:55:
+    videodev2k.h:19:46: error: linux/compiler.h: No such file or directory
+    make[4]: *** [io-v4l2k.lo] Error 1
+    make[4]: Leaving directory `/home/nicolas/temp/zvbi-0.2.19.orig/src'
+    make[3]: *** [all-recursive] Error 1
+    make[3]: Leaving directory `/home/nicolas/temp/zvbi-0.2.19.orig/src'
+    make[2]: *** [all] Error 2
+    make[2]: Leaving directory `/home/nicolas/temp/zvbi-0.2.19.orig/src'
+    make[1]: *** [all-recursive] Error 1
+    make[1]: Leaving directory `/home/nicolas/temp/zvbi-0.2.19.orig'
+    make: *** [all] Error 2</pre>
+</div>
+<br />
+<br />
+
+An easy workaround was to comment out the line, which included <b>linux/compiler.h</b>.
+However we would like to upload upstream source packages into the paldo repository. That's why upkg is able to apply
+a patch during the build process. Read on to find out how you can create a patch and apply it to a upkg spec file.
+<br />
+<br />
+
+Read the <a href="http://www.paldo.org/index-section-support-page-howtos-howto-packagebuild.html">package build howto</a> if you want to get an overview of how upkg works.
+
+<h2>Create the diff file</h2>
+First download the upstream source package of your application and untar/unzip it.
+I add the suffix ".orig" to the folder and make a copy of the whole folder without this suffix. My directory now looks like:
+<br />
+<br />
+
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <!-- http://aktuell.de.selfhtml.org/tippstricks/cgiperl/html-in-html/ -->
+  <pre>
+    [nicolas@gandalf:~/temp]$ ls -la
+    [...]
+    drwxr-xr-x  9 nicolas users   4096 2006-03-29 17:01 zvbi-0.2.19
+    drwxr-xr-x  9 nicolas users   4096 2006-03-29 17:03 zvbi-0.2.19.orig</pre>
+</div>
+<br />
+<br />
+
+Now change into the work-folder (the one without the suffix) and fix the bug(s).
+After this is done. Leave the work-folder and create a diff-file using the diff command.
+In my example I had to change the file <b>videodev2k.h</b> which could be found in the <b>src</b> folder in <b>my work-folder</b> (zvbi-0.2.19/src/videodev2k.h).
+Now I created a diff-file using the following command:
+<br />
+<br />
+
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <!-- http://aktuell.de.selfhtml.org/tippstricks/cgiperl/html-in-html/ -->
+  <pre>
+    [nicolas@gandalf:~/temp]$ diff zvbi-0.2.19.orig/src/videodev2k.h zvbi-0.2.19/src/videodev2k.h > zvbi-0.2.19-compiler.h-1.patch</pre>
+</div>
+<br />
+<br />
+
+If you changed multiple source files, repeat this step for all the other files you have changed.
+<br />
+<br />
+
+<h2>Compress the file</h2>
+Now use <b>bzip2</b> to compress your patch(es) then copy the original (upstream) source package and the compressed patch file into your repository.
+My repository folder then looks like:
+<br />
+<br />
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <!-- http://aktuell.de.selfhtml.org/tippstricks/cgiperl/html-in-html/ -->
+  <pre>
+    [nicolas@gandalf:~/]$ ls -la PaldoRepo/sources/zvbi-0.2/
+    [...]
+    -rw-r--r-- 1 nicolas users    344 2006-03-29 16:30 zvbi-0.2.19-compiler.h-1.patch.bz2
+    -rw-r--r-- 1 nicolas users 722143 2006-03-29 15:55 zvbi-0.2.19.tar.bz2</pre>
+</div>
+<br />
+<br />
+
+<h2>Inform upkg about the patch</h2>
+Now create a upkg spec file (as described in the <a href="http://www.paldo.org/index-section-support-page-howtos-howto-packagebuild.html">package build howto</a>).<br />
+The important part is adding a <b>patch-directive</b> between the <b>archive- tag</b> (&lt;patch name="zvbi-0.2.19-compiler.h-1"/&gt;).
+As you can see, you dont have to add the ".patch.bz2" suffix. In this case upkg would search for a file called <b>zvbi-0.2.19-compiler.h-1.patch.bz2</b> and automatically 
+apply it during the build process.
+<br />
+<br />
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <pre>    &lt;?xml version="1.0"?&gt;
+    &lt;package name="zvbi-0.2"&gt;
+          &lt;description&gt;the vertical blanking interval (VBI) library&lt;/description&gt;
+          &lt;releases&gt;
+                  &lt;release version="0.2.19" revision="1" branch="testing"&gt;
+                          &lt;deps&gt;
+                            &lt;dep name=&quot;libpng&quot;/&gt;
+                          &lt;/deps&gt;
+                          &lt;build&gt;
+                                  &lt;script&gt;
+                                          &lt;archive name="zvbi-$VERSION"&gt;
+                                                  &lt;patch name="zvbi-$VERSION-compiler.h-1"/&gt;
+                                                  &lt;cmd&gt;
+                                                       ./configure --prefix=/usr 
+                                                                   --infodir=/usr/share/info 
+                                                                   --mandir=/usr/share/man 
+                                                                   --sysconfdir=/etc 
+                                                                   --enable-nss=no
+                                                  &lt;/cmd&gt;
+                                                  &lt;cmd&gt;make -j 2&lt;/cmd&gt;
+                                                  &lt;cmd&gt;make install&lt;/cmd&gt;
+                                          &lt;/archive&gt;
+                                  &lt;/script&gt;
+                          &lt;/build&gt;
+                  &lt;/release&gt;
+          &lt;/releases&gt;
+    &lt;/package&gt;</pre>
+</div>
+<br />
+<br />
+
+<h2>Start compiling and installation</h2>
+Now you're ready to compile and install your application. The patch will automatically be added during this process. The following command will invoke everything:
+<br>
+<br>
+
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <pre>    [root@gandalf:~]# upkg-build zvbi-0.2
+    Generating script...
+    Writing script...
+    Executing script...
+    The following extra packages will be installed:
+    zvbi-0.2
+
+    The following packages will be built from source:
+    zvbi-0.2
+
+    Do you want to continue? [Y/n]
+    Building zvbi-0.2-0.2.19-1 (testing)...
+    [root@gandalf:~]#</pre>
+</div>
+<br>
+<br>
+
+If you want to see verbose output, you can pass <b>--verbose</b> to upkg-build:
+<br>
+<br>
+
+<div style="border: 1px dotted rgb(87, 135, 184); background-color: rgb(186, 213, 224);">
+  <pre>    [root@gandalf:~]# upkg-build --verbose zvbi-0.2</pre>
+</div>
+<br>
+<br>
+
+You should now be able to run your application.
+<br>
+<br>
+
+<h2>Log Files of upkg-build</h2>
+If you want to see, what upkg exactly did, take a look at <b>/var/lib/upkg/logs/PACKAGE-VERSION.log.bz2</b>. 
+In my case I see all the steps upkg took in <b>/var/lib/upkg/logs/zvbi-0.2-x86-glibc-2.4-gcc-4.1-1-0.2.19-1.log.bz2</b>
